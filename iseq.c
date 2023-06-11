@@ -3656,6 +3656,7 @@ rb_iseqw_local_variables(VALUE iseqval)
 static VALUE
 iseqw_to_binary(int argc, VALUE *argv, VALUE self)
 {
+    printf("iseqw_to_binary\n");
     VALUE opt = !rb_check_arity(argc, 0, 1) ? Qnil : argv[0];
     return rb_iseq_ibf_dump(iseqw_check(self), opt);
 }

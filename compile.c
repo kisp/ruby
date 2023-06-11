@@ -11384,9 +11384,33 @@ ibf_load_byte(const struct ibf_load *load, ibf_offset_t *offset)
  * 0x00010000_00000000 - 0x00ffffff_ffffffff: 8byte | 1000 0000 | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX |
  * 0x01000000_00000000 - 0xffffffff_ffffffff: 9byte | 0000 0000 | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX | XXXX XXXX |
  */
+
+
+static void d(VALUE v) {
+    ID sym_puts = rb_intern("puts");
+    ID sym_inspect = rb_intern("inspect");
+    rb_funcall(rb_mKernel, sym_puts, 1,
+        rb_funcall(v, sym_inspect, 0));
+}
+
+
 static void
 ibf_dump_write_small_value(struct ibf_dump *dump, VALUE x)
 {
+    // if (getenv("KILIAN")) printf("ibf_dump_write_small_value\n");
+
+    // if (getenv("KILIAN")) d(x);
+
+    /* VALUE *argv = (VALUE*) alloca(sizeof(VALUE) * 1); */
+    /* argv[0] = x; */
+
+    /* rb_io_puts(1, argv, rb_stdout); */
+    /* printf("\n"); */
+
+    // VALUE emp = rb_ary_new();
+    // if (getenv("KILIAN")) printf("%ld\n", x);
+    // if (getenv("KILIAN")) rb_p(x);
+
     if (sizeof(VALUE) > 8 || CHAR_BIT != 8) {
         ibf_dump_write(dump, &x, sizeof(VALUE));
         return;
@@ -11491,13 +11515,18 @@ ibf_dump_code(struct ibf_dump *dump, const rb_iseq_t *iseq)
 
     ibf_offset_t offset = ibf_dump_pos(dump);
 
+    printf("ibf_dump_code iseq_size: %d\n", iseq_size);
+
     for (code_index=0; code_index<iseq_size;) {
+        printf("code_index: %d (ibf_dump_pos(dump): %d)\n", code_index, ibf_dump_pos(dump));
         const VALUE insn = orig_code[code_index++];
         const char *types = insn_op_types(insn);
+        printf("types: %s\n", types);
         int op_index;
 
         /* opcode */
         if (insn >= 0x100) { rb_raise(rb_eRuntimeError, "invalid instruction"); }
+        printf("insn: %d\n", insn);
         ibf_dump_write_small_value(dump, insn);
 
         /* operands */
@@ -11550,6 +11579,7 @@ ibf_dump_code(struct ibf_dump *dump, const rb_iseq_t *iseq)
         }
         assert(insn_len(insn) == op_index+1);
     }
+    printf("after for: (ibf_dump_pos(dump): %d)\n", ibf_dump_pos(dump));
 
     return offset;
 }
@@ -13198,6 +13228,8 @@ rb_iseq_ibf_dump(const rb_iseq_t *iseq, VALUE opt)
     VALUE dump_obj;
     VALUE str;
 
+    printf("rb_iseq_ibf_dump\n");
+
     if (ISEQ_BODY(iseq)->parent_iseq != NULL ||
         ISEQ_BODY(iseq)->local_iseq != iseq) {
         rb_raise(rb_eRuntimeError, "should be top of iseq");
@@ -13209,8 +13241,28 @@ rb_iseq_ibf_dump(const rb_iseq_t *iseq, VALUE opt)
     dump_obj = TypedData_Make_Struct(0, struct ibf_dump, &ibf_dump_type, dump);
     ibf_dump_setup(dump, dump_obj);
 
+    printf("sizeof(header) %ld\n", sizeof(header));
+
+
+/* struct ibf_header { */
+/*     char magic[4]; /\* YARB *\/ */
+/*     unsigned int major_version; */
+/*     unsigned int minor_version; */
+/*     unsigned int size; */
+/*     unsigned int extra_size; */
+
+/*     unsigned int iseq_list_size; */
+/*     unsigned int global_object_list_size; */
+/*     ibf_offset_t iseq_list_offset; */
+/*     ibf_offset_t global_object_list_offset; */
+/* }; */
+
+    printf("sizeof(unsigned int) %ld\n", sizeof(unsigned int));
+    printf("sizeof(ibf_offset_t) %ld\n", sizeof(ibf_offset_t));
+
     ibf_dump_write(dump, &header, sizeof(header));
     ibf_dump_write(dump, RUBY_PLATFORM, strlen(RUBY_PLATFORM) + 1);
+    printf("after ruby platform pos: %d\n", ibf_dump_pos(dump));
     ibf_dump_iseq(dump, iseq);
 
     header.magic[0] = 'Y'; /* YARB */
